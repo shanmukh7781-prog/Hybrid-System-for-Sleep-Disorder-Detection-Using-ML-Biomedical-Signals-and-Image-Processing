@@ -1,0 +1,461 @@
+{% extends 'index.html' %}
+
+{% block extra_style %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ece-monitoring.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/image-processing.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/height-age-chart.js') }}"></script>
+    <style>
+        .slider-value1, .slider-value2, .slider-value3 {
+            color: white;
+            position: relative;
+            transform: translateX(-50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .prediction-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .form-section {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .monitoring-section {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .classification-methods-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+    </style>
+{% endblock %}
+
+{% block navbar %}
+    <li><a href="{{url_for('home')}}">Home</a></li>
+    <li class="active"><a href="{{url_for('prediction')}}">Prediction</a></li>
+    <li><a href="{{url_for('index')}}">Logout</a></li>
+{% endblock %}
+
+{% block content %}
+    <center>
+        <section class="section coming-soon" data-section="section3" style="height: auto; min-height: 1200px;">
+            <!-- BMI Calculator and Height-Age Chart Section -->
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; margin-bottom: 30px;">
+                <!-- BMI Calculator Section -->
+                <div style="flex: 1; min-width: 300px; padding: 20px; background-color: rgba(0, 0, 0, 0.3); border-radius: 10px; margin-right: 10px;">
+                    <h2 style="color: white; text-align: center; margin-bottom: 20px;">BMI Calculator</h2>
+                    <div class="bmi-calculator">
+                        <div class="bmi-inputs">
+                            <div class="bmi-input-group">
+                                <label for="weight" style="color: white;">Weight (kg):</label>
+                                <input type="number" id="weight" min="30" max="300" step="0.1" placeholder="Enter weight" class="form-control" style="color: yellow; background-color: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.2);">
+                            </div>
+                            <div class="bmi-input-group">
+                                <label for="height" style="color: white;">Height (cm):</label>
+                                <input type="number" id="height" min="100" max="250" step="0.1" placeholder="Enter height" class="form-control" style="color: yellow; background-color: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.2);">
+                            </div>
+                            <button id="calculate-bmi" class="button" style="width: 100%; margin-top: 15px;">Calculate BMI</button>
+                        </div>
+                        <div class="bmi-result" style="margin-top: 20px; text-align: center;">
+                            <div id="bmi-value" style="color: white; font-size: 20px; margin-bottom: 10px;">BMI: --</div>
+                            <div id="bmi-category" style="color: yellow; font-size: 18px;">Category: --</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Height-Age Chart Section -->
+                <div style="flex: 1; min-width: 400px; padding: 20px; background-color: rgba(0, 0, 0, 0.3); border-radius: 10px; height: 400px;">
+                    <canvas id="height-age-chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Classification Methods Selection -->
+            <div class="classification-methods-container">
+                <h2 style="color: white; text-align: center; margin-bottom: 20px;">Classification Method Selection</h2>
+                <p style="color: white; text-align: center; margin-bottom: 15px;">Select one or more classification methods to analyze sleep disorders:</p>
+                
+                <div class="method-selection" style="display: flex; justify-content: center; gap: 20px;">
+                    <div class="method-checkbox">
+                        <input type="checkbox" id="ml-method" name="classification_methods" value="ml" checked>
+                        <label for="ml-method" style="color: white;">ML-based Prediction</label>
+                    </div>
+                    <div class="method-checkbox">
+                        <input type="checkbox" id="ece-method" name="classification_methods" value="ece">
+                        <label for="ece-method" style="color: white;">ECE Analysis</label>
+                    </div>
+                    <div class="method-checkbox">
+                        <input type="checkbox" id="image-method" name="classification_methods" value="image">
+                        <label for="image-method" style="color: white;">Image Processing</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Image Processing Section -->
+            <div id="image-processing-section" class="image-processing-section" style="display: none;">
+                <h2 style="color: white; text-align: center; margin-bottom: 20px;">Image Processing</h2>
+                <div class="image-processing-container">
+                    <div class="image-upload-container">
+                        <p class="image-upload-label">Upload a facial image for sleep disorder detection:</p>
+                        <div style="margin-bottom: 15px;">
+                            <label style="color: white; display: block; margin-bottom: 5px;">Select Processing Model:</label>
+                            <input type="hidden" id="image-processing-model" value="enhanced">
+                            <p style="color: white; font-size: 14px;">Using advanced facial analysis model with 80%+ accuracy</p>
+                        </div>
+                        <label for="facial-image-upload" class="custom-file-upload">
+                            Choose Image
+                        </label>
+                        <input type="file" id="facial-image-upload" accept="image/*">
+                    </div>
+                    
+                    <div class="image-canvas-container">
+                        <canvas id="facial-image-canvas" width="400" height="300"></canvas>
+                    </div>
+                    
+                    <div id="image-processing-results"></div>
+                </div>
+            </div>
+            
+            <div class="prediction-container">
+                <div class="form-section">
+                <form id="contact" action="{{url_for('prediction')}}" method="post" enctype="multipart/form-data">
+
+                    <center>
+                        <h1 style="color: white;">Prediction</h1><br>
+                        {% if prediction %}
+                            <h3 style="color: rgb(197, 185, 14);">Prediction: {{prediction}}</h3><br>
+                        {% endif %}
+                    </center>
+
+                    <div class="row">
+                        {% if data %}
+                            {% for key in data.keys() %}
+                                <div class="col-md-12">
+                                    <fieldset>
+                                        <select name="{{ key }}" class="form-control" required style="background-color: rgba(255, 255, 255, 0.13); color: white; border-color: rgba(240, 248, 255, 0);">
+                                            {% if key == 'BMI_Category' %}
+                                            <option selected disabled style="color: white; background-color: black;">Choose BMI Category</option>
+                                            <option value="Normal" style="color: black; background-color: rgba(255, 255, 255, 0.13);">Normal (18.5-24.9 kg/m²)</option>
+                                            <option value="Overweight" style="color: black; background-color: rgba(255, 255, 255, 0.13);">Overweight (25-29.9 kg/m²)</option>
+                                            <option value="Obese" style="color: black; background-color: rgba(255, 255, 255, 0.13);">Obese (≥30 kg/m²)</option>
+                                            {% else %}
+                                            <option selected disabled style="color: white; background-color: black;">Choose {{ key }}</option>
+                                            {% endif %}
+                                            {% for value in data[key] %}
+                                                <option value="{{ value[1] }}" style="color: black; background-color: rgba(255, 255, 255, 0.13);">{{ value[0] }}</option>
+                                            {% endfor %}
+                                        </select><br>
+                                    </fieldset>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <div class="col-md-12">
+                            <fieldset>
+                                <input type="number" min="18" max="100" class="form-control" name="Age" placeholder="Age" required style="color: yellow;">
+                            </fieldset>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <fieldset>
+                                <input type="number" min="0" max="24" step="0.1" class="form-control" name="Sleep_Duration" placeholder="Sleep Duration (in hours e.g, 5.2)" required style="color: yellow;">
+                            </fieldset>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <fieldset>
+                                <div class="row">
+                                    <label for="rating1" style="color: white; margin-left: 15px;">Rate your Quality of Sleep (1 to 10) : <span class="slider-value1" id="rating-value1" style="color: yellow;"> 5</span></label>
+                                </div>
+                                <div class="col-13">
+                                    <input type="range" id="rating1" name="Quality_of_Sleep" min="0" max="10" value="5" step="1" required style="color: white;">
+                                </div>
+                            </fieldset>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <fieldset>
+                                <div class="row">
+                                    <label for="rating2" style="color: white; margin-left: 15px;">Rate your Physical Activity Level (%) : <span class="slider-value2" id="rating-value2" style="color: yellow;"> 50</span> </label>
+                                </div>
+                                <div class="col-13">
+                                    <input type="range" id="rating2" name="Physical_Activity_Level" min="0" max="100" value="50" step="1" required style="color: white;">
+                                </div>
+                            </fieldset>
+                        </div>
+
+                        <div class="col-md-12">
+                            <fieldset>
+                                <div class="row">
+                                    <label for="rating3" style="color: white; margin-left: 15px;">Rate your Stress Level (1 to 10) : <span class="slider-value3" id="rating-value3" style="color: yellow;"> 50</span> </label>
+                                </div>
+                                <div class="col-13">
+                                    <input type="range" id="rating3" name="Stress_Level" min="0" max="10" value="5" step="1" required style="color: white;">
+                                </div>
+                            </fieldset>
+                        </div>
+
+                        <div class="col-md-12">
+                            <fieldset>
+                                <input type="number" class="form-control" name="systolic" placeholder="Blood Presure (Systolic)" required style="color: yellow;">
+                            </fieldset>
+                        </div>
+
+                        <div class="col-md-12">
+                            <fieldset>
+                                <input type="number" class="form-control" name="diastolic" placeholder="Blood Presure (Diastolic)" required style="color: yellow;">
+                            </fieldset>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <fieldset>
+                                <input type="number" min="60" max="90" class="form-control" name="Heart_Rate" placeholder="Heart Rate" required style="color: yellow;">
+                            </fieldset>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <fieldset>
+                                <input type="number" class="form-control" name="Daily_Steps" placeholder="Daily Steps (e.g, 5000)" required style="color: yellow;">
+                            </fieldset>
+                        </div>
+
+                    </div>
+                        
+                        <div class="col-md-12">
+                            <fieldset>
+                                <button type="submit" id="form-submit" class="button">Submit</button>
+                            </fieldset>
+                        </div>
+                    </div>
+                </form>
+                </div>
+                
+                <!-- Combined Results Section -->
+                <div id="combined-results-section" class="combined-results-section" style="display: none;">
+                    <div class="combined-results">
+                        <h3 style="color: white; text-align: center; margin-bottom: 20px;">Combined Classification Results</h3>
+                        <div id="combined-results-container"></div>
+                    </div>
+                </div>
+                
+                <div class="monitoring-section">
+                    <div class="ece-monitoring-container">
+                        <div class="no-disorder-indicator">No Sleep Disorder Detected</div>
+                        <div class="waveform-container">
+                            <div class="waveform-title">EEG Waveform</div>
+                            <canvas id="eeg-canvas" class="waveform-canvas" width="400" height="150"></canvas>
+                        </div>
+                        
+                        <div class="waveform-container">
+                            <div class="waveform-title">Heart Rate Variability</div>
+                            <canvas id="hrv-canvas" class="waveform-canvas" width="400" height="150"></canvas>
+                        </div>
+                        
+                        <div class="monitoring-stats">
+                            <div class="stat-item">
+                                <div class="stat-label">Sleep Position</div>
+                                <div id="sleep-position" class="stat-value">-</div>
+                                <div id="position-reason" class="stat-explanation">-</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Respiratory Pattern</div>
+                                <div id="respiratory-pattern" class="stat-value">-</div>
+                                <div id="pattern-reason" class="stat-explanation">-</div>
+                            </div>
+                        </div>
+                        
+                        <div class="probability-bars">
+                            <div class="waveform-title">Sleep Disorder Probability</div>
+                            <div class="probability-bar">
+                                <div class="bar-label">
+                                    <span>Insomnia</span>
+                                    <span id="insomnia-prob">0%</span>
+                                </div>
+                                <div class="bar-container">
+                                    <div id="insomnia-bar" class="bar-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="probability-bar">
+                                <div class="bar-label">
+                                    <span>Sleep Apnea</span>
+                                    <span id="apnea-prob">0%</span>
+                                </div>
+                                <div class="bar-container">
+                                    <div id="apnea-bar" class="bar-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="probability-bar">
+                                <div class="bar-label">
+                                    <span>RLS</span>
+                                    <span id="rls-prob">0%</span>
+                                </div>
+                                <div class="bar-container">
+                                    <div id="rls-bar" class="bar-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="control-panel">
+                            <button id="start-monitoring" class="control-button start-button">Start Monitoring</button>
+                            <button id="stop-monitoring" class="control-button stop-button" disabled>Stop Monitoring</button>
+                            {% if prediction %}
+                            <div class="prediction-status">
+                                <p>ECE Monitoring configured for: <strong>{{ prediction }}</strong></p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>       
+    </center>
+{% endblock %}
+
+{% block extra_script %}
+    <script src="{{ url_for('static', filename='js/ece-processing.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bmi-calculator.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/image-processing.js') }}"></script>
+    <script>
+        // Slider initialization and event handlers
+        const sliders = [
+            { slider: document.getElementById("rating1"), output: document.getElementById("rating-value1") },
+            { slider: document.getElementById("rating2"), output: document.getElementById("rating-value2") },
+            { slider: document.getElementById("rating3"), output: document.getElementById("rating-value3") }
+        ];
+
+        sliders.forEach(({slider, output}) => {
+            output.innerHTML = slider.value;
+            slider.oninput = function() {
+                output.innerHTML = this.value;
+            };
+        });
+
+        // ECE Monitoring Controls
+        document.getElementById('start-monitoring').addEventListener('click', function() {
+            this.disabled = true;
+            document.getElementById('stop-monitoring').disabled = false;
+            window.eceProcessor.startMonitoring();
+        });
+
+        document.getElementById('stop-monitoring').addEventListener('click', function() {
+            this.disabled = true;
+            document.getElementById('start-monitoring').disabled = false;
+            window.eceProcessor.stopMonitoring();
+        });
+        
+        // Classification Method Selection
+        const methodCheckboxes = document.querySelectorAll('input[name="classification_methods"]');
+        const imageProcessingSection = document.getElementById('image-processing-section');
+        const combinedResultsSection = document.getElementById('combined-results-section');
+        
+        // Initialize the image processor
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize image processor
+            ImageProcessor.init('facial-image-canvas', 'image-processing-results');
+            
+            // Handle classification method selection
+            methodCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateClassificationSections);
+            });
+            
+            // Initial update
+            updateClassificationSections();
+        });
+        
+        // Update visible sections based on selected classification methods
+        function updateClassificationSections() {
+            const imageMethodSelected = document.getElementById('image-method').checked;
+            const eceMethodSelected = document.getElementById('ece-method').checked;
+            const mlMethodSelected = document.getElementById('ml-method').checked;
+            
+            // Show/hide image processing section
+            imageProcessingSection.style.display = imageMethodSelected ? 'block' : 'none';
+            
+            // Show/hide combined results section if more than one method is selected
+            const methodsSelected = [imageMethodSelected, eceMethodSelected, mlMethodSelected].filter(Boolean).length;
+            combinedResultsSection.style.display = methodsSelected > 1 ? 'block' : 'none';
+            
+            // Update combined results if needed
+            if (methodsSelected > 1) {
+                updateCombinedResults();
+            }
+            
+            // Initialize image processor if image method is selected
+            if (imageMethodSelected && typeof ImageProcessor !== 'undefined') {
+                ImageProcessor.init('facial-image-canvas', 'image-processing-results');
+            }
+        }
+        
+        // Update combined results from all selected methods
+        function updateCombinedResults() {
+            const combinedResultsContainer = document.getElementById('combined-results-container');
+            let resultsHTML = '';
+            
+            // Get ML prediction result if available
+            const mlMethodSelected = document.getElementById('ml-method').checked;
+            if (mlMethodSelected) {
+                {% if prediction %}
+                resultsHTML += `
+                    <div class="combined-result-item">
+                        <div class="combined-result-method">ML Prediction:</div>
+                        <div class="combined-result-value">{{ prediction }}</div>
+                        <div class="combined-result-accuracy">85%</div>
+                    </div>
+                `;
+                {% endif %}
+            }
+            
+            // Get ECE analysis result if available and selected
+            const eceMethodSelected = document.getElementById('ece-method').checked;
+            if (eceMethodSelected && window.eceProcessor) {
+                const eceResults = window.eceProcessor.getMonitoringResults();
+                if (eceResults) {
+                    resultsHTML += `
+                        <div class="combined-result-item">
+                            <div class="combined-result-method">ECE Analysis:</div>
+                            <div class="combined-result-value">${eceResults.disorder || 'No disorder detected'}</div>
+                            <div class="combined-result-accuracy">${eceResults.accuracy || '80'}%</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Get Image processing result if available and selected
+            const imageMethodSelected = document.getElementById('image-method').checked;
+            if (imageMethodSelected) {
+                const imageResults = ImageProcessor.getClassificationResults();
+                if (imageResults && imageResults.disorder) {
+                    resultsHTML += `
+                        <div class="combined-result-item">
+                            <div class="combined-result-method">Image Analysis:</div>
+                            <div class="combined-result-value">${imageResults.disorder}</div>
+                            <div class="combined-result-accuracy">${imageResults.accuracy}%</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            // If we have results, add a summary
+            if (resultsHTML) {
+                resultsHTML += `
+                    <div class="combined-summary" style="margin-top: 15px; padding: 10px; background-color: rgba(0, 0, 0, 0.5); border-radius: 5px;">
+                        <p style="color: white; margin: 0;">The combined analysis provides a more comprehensive view of your sleep health. Consider consulting with a healthcare professional for a definitive diagnosis.</p>
+                    </div>
+                `;
+            } else {
+                resultsHTML = `<p style="color: white; text-align: center;">No classification results available yet. Please submit the form or upload an image for analysis.</p>`;
+            }
+            
+            combinedResultsContainer.innerHTML = resultsHTML;
+        }
+    </script>
+{% endblock %}

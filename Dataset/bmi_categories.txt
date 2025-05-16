@@ -1,0 +1,7 @@
+BMI Categories and Their Ranges:
+
+Normal: 18.5-24.9 kg/m²
+Overweight: 25-29.9 kg/m²
+Obese: ≥30 kg/m²
+
+Note: These categories are based on standard BMI classification guidelines from the World Health Organization (WHO). The term 'Normal Weight' has been standardized to 'Normal' throughout the application.
